@@ -18,24 +18,24 @@ lenient rubric score in chat.
 
 ## How It Works
 
-0. **Pre-flight** — before anything, the agent verifies the `user-chrome-devtools`
-   MCP is connected. If it's missing, the skill refuses to start rather than
+1. **Pre-flight** — before anything, the agent verifies the `user-chrome-devtools`
+  MCP is connected. If it's missing, the skill refuses to start rather than
    silently degrading into a text-only interview.
-1. **Intake** — asks for level, problem-sourcing path (web search / you-provide /
-   discuss together), time budget, and whiteboard tool.
-2. **Problem statement** — locks scope before the board opens. Web-search path
-   proposes 2-3 representative problems for your JD/domain (and falls back to
+2. **Intake** — asks for level, problem-sourcing path (web search / you-provide /
+  discuss together), time budget, and whiteboard tool.
+3. **Problem statement** — locks scope before the board opens. Web-search path
+  proposes 2-3 representative problems for your JD/domain (and falls back to
    the you-provide / discuss paths if the agent runtime has no `WebSearch`).
-3. **Board setup** — opens your chosen whiteboard in a new tab, waits for you to
-   log in and create a blank canvas, confirms via screenshot, then opens a
+4. **Board setup** — opens your chosen whiteboard in a new tab, waits for you to
+  log in and create a blank canvas, confirms via screenshot, then opens a
    Google countdown-timer tab in the background so elapsed time is a real,
    screenshot-readable signal rather than a hallucinated wall clock.
-4. **Interview loop** — every time you send a message, the agent first
-   screenshots the board, then responds with one scoped probe, clarifying
+5. **Interview loop** — every time you send a message, the agent first
+  screenshots the board, then responds with one scoped probe, clarifying
    question, scenario injection, or trade-off challenge. At phase transitions
    it peeks at the timer tab to decide when to push toward deep-dives.
-5. **Evaluation** — 8-dimension rubric scored 0-5 in 0.5 increments with
-   partial credit, N/A allowed, level-weighted must-haves. Report is chat-only.
+6. **Evaluation** — 8-dimension rubric scored 0-5 in 0.5 increments with
+  partial credit, N/A allowed, level-weighted must-haves. Report is chat-only.
 
 ## Installation
 
@@ -134,13 +134,13 @@ Once installed, the skill activates automatically when you ask the agent to
 run, mock, or practice a system design interview. Example prompts:
 
 - "Interview me for a senior SDE system design round on a ride-sharing backend
-  using Excalidraw."
+using Excalidraw."
 - "Mock a staff-level system design interview. Use the attached JD to pick a
-  realistic problem. I'll use Miro."
+realistic problem. I'll use Miro."
 - "Run a mid-level design interview. Problem: design a URL shortener. Board:
-  tldraw."
+tldraw."
 - "Quiz me on system design. Junior level. Let's pick a problem together.
-  Whiteboard: FigJam."
+Whiteboard: FigJam."
 
 ## Tool Footprint
 
@@ -154,7 +154,7 @@ Strictly whitelisted — the skill body enforces this:
 - `user-chrome-devtools.select_page` — refocus the tab before a screenshot
 - `user-chrome-devtools.take_screenshot` — core interview loop
 - `WebSearch` (agent built-in) — only in Phase 1 when you pick the web-search
-  problem path
+problem path
 
 **Does not use:**
 
@@ -175,11 +175,12 @@ transcripts or reports to disk.
 ## Design Notes
 
 - **Lenient scoring.** Partial credit in 0.5 increments. Missing nice-to-haves
-  doesn't penalize; missing the 2-3 must-haves for your level does.
+doesn't penalize; missing the 2-3 must-haves for your level does.
 - **N/A is valid.** Dimensions the problem genuinely doesn't need (e.g.
-  multi-region for an internal admin tool) are excluded from the average.
+multi-region for an internal admin tool) are excluded from the average.
 - **Screenshot-first invariant.** Every candidate turn begins with
-  `select_page` + `take_screenshot`. Candidates who narrate without drawing
-  still get screenshotted — that silence is itself signal.
+`select_page` + `take_screenshot`. Candidates who narrate without drawing
+still get screenshotted — that silence is itself signal.
 - **Level-weighted probes.** Junior gets happy-path CRUD; staff gets CAP,
-  blast radius, migration strategy, and cost.
+blast radius, migration strategy, and cost.
+
