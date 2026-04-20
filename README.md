@@ -1,7 +1,10 @@
-# System Design Interview Prep — Cursor Skill
+# System Design Interview Prep — Coding Agent Skill
 
 A level-aware, whiteboard-driven system design interviewer, packaged as a
-[Cursor Agent Skill](https://docs.cursor.com/context/skills).
+coding-agent skill (Anthropic-style `SKILL.md` with YAML frontmatter). Works
+with any agent that honors the `SKILL.md` convention — **Cursor**, **Claude
+Code**, **Codex CLI**, and similar tools. A Windsurf workaround is included
+below since Windsurf does not natively support `SKILL.md`-style skills yet.
 
 The agent plays the interviewer. You pick a level (junior / mid / senior / staff),
 a problem, and a whiteboard tool (Excalidraw, tldraw, Miro, Whimsical, FigJam,
@@ -9,6 +12,9 @@ Google Drawings, Mural). On every candidate turn, the agent takes a screenshot o
 your live board via the Chrome DevTools MCP, analyzes it alongside what you said,
 and probes with exactly one interviewer move. At the end you get a calibrated,
 lenient rubric score in chat.
+
+> **Requires the Chrome DevTools MCP** (`user-chrome-devtools`) in whichever
+> agent you wire this into. The skill will refuse to run without it.
 
 ## How It Works
 
@@ -26,31 +32,99 @@ lenient rubric score in chat.
 
 ## Installation
 
-### As a Personal Skill (all projects)
+Clone the repo once, anywhere on disk:
 
 ```bash
-ln -s /Users/afzal985/opt/personal-projects/system-design-interview-prep \
+git clone https://github.com/afzalmukhtar/system-design-interview-prep-skill.git \
+  ~/skills/system-design-interview-prep
+```
+
+Then symlink it into each agent's skills directory. Symlinks let `git pull` in
+one place propagate updates to every agent. If you prefer a detached copy, use
+`cp -R` instead of `ln -s`.
+
+### Cursor
+
+Personal (available in all projects):
+
+```bash
+mkdir -p ~/.cursor/skills
+ln -s ~/skills/system-design-interview-prep \
   ~/.cursor/skills/system-design-interview-prep
 ```
 
-Or copy if you prefer a detached install:
+Project (single repo only):
 
 ```bash
-cp -R /Users/afzal985/opt/personal-projects/system-design-interview-prep \
-  ~/.cursor/skills/system-design-interview-prep
-```
-
-### As a Project Skill (single repo)
-
-```bash
-cp -R /Users/afzal985/opt/personal-projects/system-design-interview-prep \
+mkdir -p <your-repo>/.cursor/skills
+ln -s ~/skills/system-design-interview-prep \
   <your-repo>/.cursor/skills/system-design-interview-prep
 ```
 
+### Claude Code
+
+Personal:
+
+```bash
+mkdir -p ~/.claude/skills
+ln -s ~/skills/system-design-interview-prep \
+  ~/.claude/skills/system-design-interview-prep
+```
+
+Project:
+
+```bash
+mkdir -p <your-repo>/.claude/skills
+ln -s ~/skills/system-design-interview-prep \
+  <your-repo>/.claude/skills/system-design-interview-prep
+```
+
+### Codex CLI (OpenAI)
+
+Personal:
+
+```bash
+mkdir -p ~/.codex/skills
+ln -s ~/skills/system-design-interview-prep \
+  ~/.codex/skills/system-design-interview-prep
+```
+
+### Windsurf
+
+Windsurf does not natively support the `SKILL.md` skill format as a
+first-class concept. Two reasonable workarounds:
+
+**Option A — expose it as a rule** (auto-loaded into every session):
+
+```bash
+mkdir -p ~/.codeium/windsurf/memories
+cp /Users/afzal985/opt/personal-projects/system-design-interview-prep/SKILL.md \
+   ~/.codeium/windsurf/memories/system-design-interview-prep.md
+```
+
+Or put it in a workspace-local rule:
+
+```bash
+mkdir -p <your-repo>/.windsurf/rules
+ln -s ~/skills/system-design-interview-prep/SKILL.md \
+  <your-repo>/.windsurf/rules/system-design-interview-prep.md
+```
+
+**Option B — paste on demand**: open `SKILL.md` and paste its body into the
+Cascade chat at the start of a session. Less automatic, but zero setup.
+
+Windsurf's rule system changes frequently; consult current Windsurf docs for
+the active path if the ones above have moved.
+
+### Any other agent with `SKILL.md` support
+
+The skill is just a directory with `SKILL.md` + `README.md`. Symlink or copy
+the directory into whatever path your agent scans for skills.
+
 ## Usage
 
-The skill activates automatically when the user asks to run, mock, or practice a
-system design interview. Example prompts:
+Once installed, the skill activates automatically when you ask the agent to
+run, mock, or practice a system design interview. Example prompts:
 
 - "Interview me for a senior SDE system design round on a ride-sharing backend
   using Excalidraw."
@@ -72,7 +146,8 @@ Strictly whitelisted — the skill body enforces this:
 - `user-chrome-devtools.list_pages` — resolve the whiteboard tab id
 - `user-chrome-devtools.select_page` — refocus the tab before a screenshot
 - `user-chrome-devtools.take_screenshot` — core interview loop
-- `WebSearch` — only in Phase 1 when you pick the web-search problem path
+- `WebSearch` (agent built-in) — only in Phase 1 when you pick the web-search
+  problem path
 
 **Does not use:**
 
