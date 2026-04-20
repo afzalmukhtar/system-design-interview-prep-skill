@@ -30,13 +30,25 @@ If an action requires a forbidden tool, stop and tell the candidate why instead 
 ## 2. Session state (track in memory)
 
 - `level`: one of `junior | mid | senior | staff`
-- `problem`: one-paragraph scoped statement + 3-5 bullets of functional and non-functional requirements
+- `problem`: the locked block produced in Phase 1
 - `whiteboard_tool`: e.g. Excalidraw, tldraw, Miro
 - `whiteboard_page_id`: from `list_pages`
+- `timer_page_id`: from `list_pages` (the Google countdown tab opened in Phase 2)
+- `time_budget_minutes`: chosen in Phase 0, default 45
+- `turn_count`
 - `rubric`: the 8 dimensions from section 8, each with running score (0-5 in 0.5 steps) and 1-line notes; some may be `N/A`
-- `turn_count`, `time_budget_minutes`, `elapsed_minutes`
 
-## 3. Phase 0 — Intake
+## 3. Phase 0 — Pre-flight + Intake
+
+### Pre-flight (first action, before anything else)
+
+Confirm the `user-chrome-devtools` MCP is connected by calling `list_pages`. If the call errors, times out, or the MCP is unavailable, stop and tell the candidate:
+
+> "This skill needs the `user-chrome-devtools` MCP. Please enable it in your agent and retry. I can't run a text-only version — the per-turn screenshot loop is the interview."
+
+Do not proceed to intake, do not fall back to a text-only session, and do not ask the candidate to describe the board in words. The screenshot loop is load-bearing.
+
+### Intake
 
 Ask the candidate in one message:
 
@@ -54,6 +66,8 @@ Do not open the browser yet.
 
 ### Path A — web search
 Use `WebSearch` with the candidate's job description / company / domain. Propose 2-3 representative problems (one line each, with rough scope). Let them pick. Then scope it together in 1 round.
+
+If `WebSearch` is not available in the current agent runtime, tell the candidate Path A is unavailable and offer Path B or C instead. Do not silently skip it.
 
 ### Path B — user-provided
 Accept the problem verbatim. Ask 1 round of clarifying questions to lock scope (target users, core use cases, hard non-goals). Do not expand beyond what they asked for.
@@ -80,13 +94,17 @@ Echo this back and ask "Ready to open the board?" before Phase 2.
    - Miro → `https://miro.com`
    - Whimsical → `https://whimsical.com`
    - FigJam → `https://figma.com/figjam/`
-   - Google Drawings → `https://docs.google.com/drawings/`
+   - Google Drawings → `https://docs.google.com/drawings/create` (the `/create` path opens a blank canvas directly instead of the dashboard)
 2. Tell the candidate: log in (if needed), create a blank board, make sure it is the active tab, and reply `ready`.
 3. On `ready`:
    - Call `list_pages`, pick the whiteboard tab, call `select_page` with `bringToFront: true`, store `whiteboard_page_id`.
    - Call `take_screenshot` once and confirm a blank or near-blank canvas is visible.
    - If the screenshot shows a login wall, a dashboard, or the wrong tab, ask them to fix it and screenshot again. Do not start the interview until a clean canvas is visible.
-4. Start a 45-min (or chosen) mental timer. Announce "Starting now. Walk me through how you would approach this."
+4. **Open the shared countdown timer** (this is how we track wall-clock time — screenshots are the only tool we have, so the timer has to be visible on a page):
+   - Call `new_page` with `url: https://www.google.com/search?q=countdown+timer+<N>+minutes` where `<N>` is the chosen `time_budget_minutes` (default `45`). Use `background: true` so the whiteboard stays in focus. Google auto-starts the countdown widget on that search results page.
+   - Call `list_pages`, identify the Google search tab, store `timer_page_id`. Do not bring it to the front.
+   - Call `select_page` with `whiteboard_page_id` and `bringToFront: true` so the whiteboard is the active tab again before we begin.
+5. Announce: "Timer is running on a background tab. I'll glance at it periodically. Starting now — walk me through how you would approach this."
 
 ## 6. Phase 3 — Interview loop (core invariant)
 
@@ -103,9 +121,9 @@ For every candidate message during the interview body:
    - Trade-off challenge ("You picked a relational store. Why not a KV store here?")
    - Short acknowledgement + move on ("Good. Now let's talk about the read path.")
 4. **Never draw, edit, or dictate the diagram.** The board belongs to the candidate.
-5. **Never reveal the model answer.** Minimal unblocking hints only (one sentence).
+5. **Never reveal the model answer during the interview body.** Minimal unblocking hints only (one sentence). A fuller "what a stronger answer would have looked like" is allowed — but only in Phase 4, never during the live interview.
 6. **Keep your turn short.** 2-5 sentences. At most one question or challenge per turn.
-7. Update `rubric` notes silently. Increment `turn_count`.
+7. Update `rubric` notes silently. Increment `turn_count`. **Never share scores, bands, or rubric notes mid-interview, even if the candidate asks.** Say "I'll share the full scorecard at the end."
 
 ### Deep-dive selection (most important step)
 
@@ -115,15 +133,26 @@ Deep-dives are where senior+ signal lives. Once the high-level is sketched (or a
 
 Prefer components where (a) the candidate waved hands, (b) the problem's scale actually stresses them, or (c) the level demands depth (sharding for senior, multi-region for staff). Do not let the candidate redraw the high-level to avoid deep-dives.
 
-### Time-aware pacing (rough guide for a 45-min session)
+### Time-aware pacing
 
-| Elapsed | Focus |
+We do not have a wall-clock tool. Pacing is enforced two ways:
+
+**1. Share-of-budget guide** (use this as the mental model):
+
+| Share of budget | Focus |
 |---|---|
-| 0-5 min | Requirements + scope confirmation |
-| 5-10 min | Capacity estimation (level-dependent), APIs, data model skeleton |
-| 10-20 min | High-level architecture (cap at ~35-40% of the total budget) |
-| 20-40 min | **Deep dives** (1-2 components) + failure modes + trade-offs — this is where the score is decided |
-| 40-45 min | Wrap, open questions from candidate, then move to Phase 4 |
+| First ~10% | Requirements + scope confirmation |
+| Next ~10-15% | Capacity estimation (level-dependent), APIs, data model skeleton |
+| Next ~20-25% | High-level architecture — cap here, don't let it eat the session |
+| Middle ~40-50% | **Deep dives** (1-2 components) + failure modes + trade-offs — this is where the score is decided |
+| Last ~10% | Wrap, candidate's open questions, then Phase 4 |
+
+**2. Real timer checks via screenshot.** At phase boundaries and whenever pacing feels off, check the actual countdown:
+
+- `select_page` → `timer_page_id` (with `bringToFront: true`) → `take_screenshot` → read the remaining minutes on the Google countdown widget.
+- Then `select_page` → `whiteboard_page_id` (with `bringToFront: true`) **before** your next interviewer move. Never leave the candidate on the timer tab.
+- Good trigger points: after the high-level is sketched, before announcing deep-dives, when the candidate seems stuck, and for the wrap-up call.
+- Don't timer-check every turn — it adds noise. Roughly every 5-8 turns, or at phase transitions.
 
 Industry pattern: candidates often burn >50% of the interview on high-level boxes-and-arrows, then run out of time before demonstrating depth. Actively push toward deep-dives if the high-level is taking too long:
 
@@ -197,46 +226,47 @@ Use this when deciding between two adjacent bands:
 
 ## 9. Phase 4 — Final evaluation (chat only)
 
-When the timer runs out, or the candidate says they are done, stop the interview loop and produce this report **in chat only** (do not write any file).
+When the timer runs out, or the candidate says they are done, stop the interview loop and produce the report below **in chat only** (do not write any file). Emit it as live markdown so the table renders — do **not** wrap it in a code fence.
 
-```
-System Design Interview — <problem title>
-Level targeted: <junior|mid|senior|staff+>
+Template (fill in; keep this structure and heading order):
 
-Verdict: <band at level> — <overall>/5 overall
-  (e.g. "Lean Hire at Senior — 3.4/5 overall", "Strong Hire at Mid, approaching Senior — 3.9/5")
+**System Design Interview — `<problem title>`**
+**Level targeted:** `<junior | mid | senior | staff+>`
 
-Rubric
-| Dimension | Score | Band | What landed | What was missing (only if it materially mattered) |
+**Verdict:** `<band at level>` — `<overall>/5` overall
+*(e.g. "Lean Hire at Senior — 3.4/5 overall", "Strong Hire at Mid, approaching Senior — 3.9/5")*
+
+**Rubric**
+
+| Dimension | Score | Band | What landed | What was missing (only if material) |
 |---|---|---|---|---|
-| Requirements clarification & problem exploration | x.x | <band> | ... | ... |
-| Scope, NFRs & capacity estimation                | x.x | <band> | ... | ... |
-| High-level architecture & request flow           | x.x | <band> | ... | ... |
-| Data model & storage                             | x.x | <band> | ... | ... |
-| API / interface design                           | x.x | <band> | ... | ... |
-| Deep dives: scale, reliability, failure modes    | x.x | <band> | ... | ... |
-| Trade-off reasoning                              | x.x | <band> | ... | ... |
-| Communication & collaboration                    | x.x | <band> | ... | ... |
+| Requirements clarification & problem exploration | x.x | \<band\> | ... | ... |
+| Scope, NFRs & capacity estimation                | x.x | \<band\> | ... | ... |
+| High-level architecture & request flow           | x.x | \<band\> | ... | ... |
+| Data model & storage                             | x.x | \<band\> | ... | ... |
+| API / interface design                           | x.x | \<band\> | ... | ... |
+| Deep dives: scale, reliability, failure modes    | x.x | \<band\> | ... | ... |
+| Trade-off reasoning                              | x.x | \<band\> | ... | ... |
+| Communication & collaboration                    | x.x | \<band\> | ... | ... |
 
-Top strengths (with evidence)
-- ...
-- ...
-- ...
-
-Top gaps that actually would have changed the score
+**Top strengths (with evidence)**
 - ...
 - ...
 - ...
 
-What a <next-level-up> answer would have added
+**Top gaps that actually would have changed the score**
 - ...
 - ...
 - ...
 
-Concrete next steps (2-3 study topics)
+**What a `<next-level-up>` answer would have added**
 - ...
 - ...
-```
+- ...
+
+**Concrete next steps (2-3 study topics)**
+- ...
+- ...
 
 Rules for the report:
 
@@ -251,9 +281,10 @@ Rules for the report:
 
 - Never skip the screenshot step at the start of an interview turn.
 - Never call a tool outside the whitelist in section 1. If tempted, stop and explain to the candidate.
-- Never reveal the model answer during the interview body. Minimal one-sentence unblocking only.
+- Never reveal the model answer during the interview body. Minimal one-sentence unblocking only. The "what a stronger answer would have added" discussion belongs in Phase 4, not before.
+- Never share rubric scores, bands, or notes mid-interview, even if the candidate asks directly. "I'll share the full scorecard at the end" is the correct response.
 - Do not draw or edit on the board yourself, even if asked.
-- Do not change the candidate's chosen level mid-session unless they explicitly ask.
+- Do not change the candidate's chosen level mid-session unless they explicitly ask. If they asked for staff and are answering at junior, ride it out and let the rubric reflect it — that mismatch is itself signal.
 - Do not grade on effort or personality — grade on the rubric.
 - Keep interviewer turns to 2-5 sentences, at most one question or challenge per turn.
 - Do not persist transcripts or reports to disk. The final report lives in chat only.

@@ -18,15 +18,22 @@ lenient rubric score in chat.
 
 ## How It Works
 
+0. **Pre-flight** — before anything, the agent verifies the `user-chrome-devtools`
+   MCP is connected. If it's missing, the skill refuses to start rather than
+   silently degrading into a text-only interview.
 1. **Intake** — asks for level, problem-sourcing path (web search / you-provide /
    discuss together), time budget, and whiteboard tool.
 2. **Problem statement** — locks scope before the board opens. Web-search path
-   proposes 2-3 representative problems for your JD/domain.
+   proposes 2-3 representative problems for your JD/domain (and falls back to
+   the you-provide / discuss paths if the agent runtime has no `WebSearch`).
 3. **Board setup** — opens your chosen whiteboard in a new tab, waits for you to
-   log in and create a blank canvas, confirms via screenshot, then starts.
+   log in and create a blank canvas, confirms via screenshot, then opens a
+   Google countdown-timer tab in the background so elapsed time is a real,
+   screenshot-readable signal rather than a hallucinated wall clock.
 4. **Interview loop** — every time you send a message, the agent first
    screenshots the board, then responds with one scoped probe, clarifying
-   question, scenario injection, or trade-off challenge.
+   question, scenario injection, or trade-off challenge. At phase transitions
+   it peeks at the timer tab to decide when to push toward deep-dives.
 5. **Evaluation** — 8-dimension rubric scored 0-5 in 0.5 increments with
    partial credit, N/A allowed, level-weighted must-haves. Report is chat-only.
 
@@ -98,7 +105,7 @@ first-class concept. Two reasonable workarounds:
 
 ```bash
 mkdir -p ~/.codeium/windsurf/memories
-cp /Users/afzal985/opt/personal-projects/system-design-interview-prep/SKILL.md \
+cp ~/skills/system-design-interview-prep/SKILL.md \
    ~/.codeium/windsurf/memories/system-design-interview-prep.md
 ```
 
@@ -156,8 +163,14 @@ Strictly whitelisted — the skill body enforces this:
 - Terminal commands, file reads or writes, git
 - Any other MCP server
 
+`take_snapshot` is intentionally excluded even though it ships in the same MCP.
+Whiteboards render diagrams in canvas/SVG layers where DOM text says almost
+nothing useful; a raster screenshot is cheaper, richer signal, and avoids DOM
+noise. Future maintainers: please don't "optimize" this by adding snapshots.
+
 The agent will never draw on your board, never reveal the model answer during
-the interview body, and never persist transcripts or reports to disk.
+the interview body, never share rubric scores mid-session, and never persist
+transcripts or reports to disk.
 
 ## Design Notes
 
